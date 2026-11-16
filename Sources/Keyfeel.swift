@@ -110,9 +110,12 @@ final class Playback {
         let presses = variants.map { peak(of: $0.down) }.filter { $0 > 0 }.sorted()
         guard !presses.isEmpty else { return }
         let typicalPeak = presses[presses.count / 2]
-        let loudestPeak = variants.map { max(peak(of: $0.down), peak(of: $0.up)) }.max() ?? typicalPeak
-        let gain = min(0.36 / typicalPeak, 0.68 / loudestPeak, 6)
         for pair in variants {
+            let pressPeak = peak(of: pair.down)
+            let releasePeak = peak(of: pair.up)
+            // Raise quiet presses while preserving the recording's press-to-release balance.
+            let gain = min(0.36 / max(pressPeak, typicalPeak * 0.35),
+                           0.68 / max(pressPeak, releasePeak), 12)
             for buffer in [pair.down, pair.up] {
                 guard let channel = buffer.floatChannelData?[0] else { continue }
                 for frame in 0..<Int(buffer.frameLength) {
@@ -137,7 +140,7 @@ final class Playback {
                     let name = "\(group)_\(action)_0\(variant).wav"
                     let file = try AVAudioFile(forReading: folder.appendingPathComponent(name))
                     let end = Double(file.length) / file.processingFormat.sampleRate * 1_000
-                    guard let buffer = try clip(file, range: [0, end], trimAttack: true) else {
+                    guard let buffer = try clip(file, range: [0, end], longTailFade: true) else {
                         throw SoundError.missingSamples
                     }
                     return buffer
@@ -157,7 +160,8 @@ final class Playback {
         var sounds: [String: [KeySounds]] = [:]
         for (key, ranges) in timing where ranges.count == 2 {
             guard let down = try clip(file, range: ranges[0]),
-                  let up = try clip(file, range: ranges[1]) else { continue }
+                  let up = try clip(file, range: ranges[1]),
+                  peak(of: down) >= 0.002 else { continue }
             sounds[key] = [KeySounds(down: down, up: up)]
         }
         guard sounds["KeyA"] != nil else { throw SoundError.missingSamples }
@@ -165,7 +169,7 @@ final class Playback {
     }
 
     private func clip(_ file: AVAudioFile, range: [Double],
-                      trimAttack: Bool = false) throws -> AVAudioPCMBuffer? {
+                      longTailFade: Bool = false) throws -> AVAudioPCMBuffer? {
         guard range.count == 2 else { return nil }
         let rate = file.processingFormat.sampleRate
         let start = AVAudioFramePosition((range[0] * rate / 1_000).rounded())
@@ -188,19 +192,17 @@ final class Playback {
             }
             mono[index] = sample / Float(channelCount)
         }
-        if trimAttack {
-            let peak = (0..<length).map { abs(mono[$0]) }.max() ?? 0
-            if let onset = (0..<length).first(where: { abs(mono[$0]) >= peak * 0.045 }) {
-                let leadIn = max(0, onset - 16)
-                if leadIn > 0 {
-                    length -= leadIn
-                    memmove(mono, mono.advanced(by: leadIn), length * MemoryLayout<Float>.stride)
-                    buffer.frameLength = AVAudioFrameCount(length)
-                }
+        let peak = (0..<length).reduce(Float(0)) { max($0, abs(mono[$1])) }
+        if peak > 0, let onset = (0..<length).first(where: { abs(mono[$0]) >= peak * 0.045 }) {
+            let leadIn = max(0, onset - 16)
+            if leadIn > 0 {
+                length -= leadIn
+                memmove(mono, mono.advanced(by: leadIn), length * MemoryLayout<Float>.stride)
+                buffer.frameLength = AVAudioFrameCount(length)
             }
         }
-        let attack = min(trimAttack ? 16 : 80, length / 2)
-        let decay = min(trimAttack ? 882 : 80, length / 2)
+        let attack = min(16, length / 2)
+        let decay = min(longTailFade ? 882 : 80, length / 2)
         for index in 0..<attack {
             mono[index] *= Float(index) / Float(attack)
         }
@@ -312,6 +314,20 @@ final class Keyfeel: NSObject, NSApplicationDelegate, ObservableObject {
             if !enabled { playback.stop() }
         }
     }
+    @Published var pauseForExternalKeyboard = UserDefaults.standard.object(
+        forKey: "pauseForExternalKeyboard"
+    ) as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(pauseForExternalKeyboard, forKey: "pauseForExternalKeyboard")
+            if pausedForExternalKeyboard {
+                stopPreview()
+                playback.stop()
+            }
+        }
+    }
+
+    var pausedForExternalKeyboard: Bool { pauseForExternalKeyboard && externalKeyboardConnected }
+
     @Published var profile = Profile.available.first {
         $0.rawValue == UserDefaults.standard.string(forKey: "soundProfile")
     } ?? .preferred {
@@ -364,11 +380,9 @@ final class Keyfeel: NSObject, NSApplicationDelegate, ObservableObject {
         keyboardMonitor = ExternalKeyboardMonitor { [weak self] connected in
             guard let self, self.externalKeyboardConnected != connected else { return }
             self.externalKeyboardConnected = connected
-            if connected {
+            if self.pausedForExternalKeyboard {
                 self.stopPreview()
                 self.playback.stop()
-            } else {
-                self.audioFailed = false
             }
         }
         playback.setTone(tone)
@@ -510,7 +524,7 @@ final class Keyfeel: NSObject, NSApplicationDelegate, ObservableObject {
     }
 
     private func play(_ key: KeyboardKey, released: Bool) {
-        guard !externalKeyboardConnected else { return }
+        guard !pausedForExternalKeyboard else { return }
         do {
             try playback.play(key.sample, released: released, pan: key.pan, volume: Float(volume))
             audioFailed = false
@@ -524,7 +538,7 @@ final class Keyfeel: NSObject, NSApplicationDelegate, ObservableObject {
             stopPreview()
             return
         }
-        guard !externalKeyboardConnected else { return }
+        guard !pausedForExternalKeyboard else { return }
         loadProfile()
         guard !audioFailed else { return }
 

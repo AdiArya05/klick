@@ -7,7 +7,6 @@ final class KeyfeelPanel: NSPanel {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered, defer: true)
         title = "Klick"
-        appearance = NSAppearance(named: .aqua)
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
@@ -18,28 +17,19 @@ final class KeyfeelPanel: NSPanel {
 
         let hosting = NSHostingView(rootView: Panel(model: model))
         let size = hosting.fittingSize
-        let bounds = NSRect(origin: .zero, size: size)
-        if #available(macOS 26.0, *) {
-            let glass = NSGlassEffectView(frame: bounds)
-            glass.style = .regular
-            glass.cornerRadius = 24
-            glass.tintColor = NSColor.white.withAlphaComponent(0.18)
-            glass.contentView = hosting
-            contentView = glass
-        } else {
-            let backdrop = NSVisualEffectView(frame: bounds)
-            backdrop.material = .popover
-            backdrop.blendingMode = .behindWindow
-            backdrop.state = .active
-            backdrop.wantsLayer = true
-            backdrop.layer?.cornerRadius = 24
-            backdrop.layer?.cornerCurve = .continuous
-            backdrop.layer?.masksToBounds = true
-            contentView = backdrop
-            hosting.frame = backdrop.bounds
-            hosting.autoresizingMask = [.width, .height]
-            backdrop.addSubview(hosting)
-        }
+        let backdrop = NSVisualEffectView(frame: NSRect(origin: .zero, size: size))
+        backdrop.material = .popover
+        backdrop.blendingMode = .behindWindow
+        backdrop.state = .active
+        backdrop.wantsLayer = true
+        backdrop.layer?.cornerRadius = 26
+        backdrop.layer?.cornerCurve = .continuous
+        backdrop.layer?.masksToBounds = true
+
+        hosting.frame = backdrop.bounds
+        hosting.autoresizingMask = [.width, .height]
+        backdrop.addSubview(hosting)
+        contentView = backdrop
         setContentSize(size)
     }
 
@@ -58,7 +48,7 @@ struct Panel: View {
         if model.audioFailed { return "Audio unavailable" }
         if !model.permissionGranted { return "Input Monitoring required" }
         if !model.monitoring { return "Reopen to start listening" }
-        if model.externalKeyboardConnected { return "Paused · External keyboard connected" }
+        if model.pausedForExternalKeyboard { return "Paused · External keyboard connected" }
         return model.enabled ? "Typing sounds on" : "Typing sounds paused"
     }
 
@@ -152,10 +142,15 @@ struct Panel: View {
                         .frame(width: 22)
                 }
                 .buttonStyle(.plain)
-                .disabled(model.externalKeyboardConnected)
+                .disabled(model.pausedForExternalKeyboard)
                 .accessibilityLabel(model.isPreviewPlaying ? "Pause preview" : "Play preview")
                 .help(model.isPreviewPlaying ? "Pause preview" : "Play preview")
                 Menu {
+                    Picker("Play typing sounds", selection: $model.pauseForExternalKeyboard) {
+                        Text("Only when no external keyboard is connected").tag(true)
+                        Text("With any keyboard").tag(false)
+                    }
+                    Divider()
                     Button("Quit Klick") { NSApp.terminate(nil) }
                         .keyboardShortcut("q", modifiers: .command)
                 } label: {

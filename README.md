@@ -1,22 +1,40 @@
+<img src="docs/klick-icon.png" width="96" alt="Klick icon">
+
 # Klick
 
-Klick plays mechanical keyboard sounds as you type on your Mac. Choose a switch, adjust the volume, or send typing sounds to a different audio output from the keyboard icon in the menu bar.
+Klick adds mechanical keyboard sounds to your Mac. Choose a switch, adjust its tone and volume, and decide when and where to hear it from the menu bar.
 
-## Install
+[**Download Klick for Mac**](https://github.com/AdiArya05/klick/releases/latest/download/Klick-macOS.zip) · [Release notes](https://github.com/AdiArya05/klick/releases/latest)
 
-1. [Download Klick-macOS.zip](https://github.com/AdiArya05/klick/releases/latest/download/Klick-macOS.zip) for Apple silicon or Intel on macOS 14 or later.
-2. If you have an older copy open, quit it from the menu bar. The app was previously called **Keyfeel**. Move the old Keyfeel app to the Trash before opening Klick. Unzip the download, move **Klick.app** to **Applications**, and choose **Replace** if asked. Open the copy in Applications.
-3. If macOS blocks the first launch, dismiss the alert, then go to **System Settings → Privacy & Security → Open Anyway** for Klick and confirm **Open**. The ZIP is ad-hoc signed. [Apple’s first-launch instructions](https://support.apple.com/en-us/102445)
-4. Click the keyboard icon in the menu bar. Under **Sound → Output**, choose your Mac’s built-in speakers if that’s where you want to hear the sound. Raise Klick’s **Volume** and press **▶** to test the selected output.
-5. Choose **Enable Input Monitoring**, turn on Klick under **System Settings → Privacy & Security → Input Monitoring**, and reopen Klick if macOS prompts you. With **Typing sounds on**, type a few letters to test.
+Requires macOS 14 or later on Apple silicon or Intel. The ZIP contains the finished app.
 
-The preview button shows Pause while it plays. Click it again to stop the preview early. Klick stays quiet while an external keyboard is connected.
+## First setup
 
-If the preview plays but typing is silent after replacing an older build, check Input Monitoring for the copy in **Applications**. If the permission is already on, remove that Klick entry, add the installed copy again, and reopen it. If the preview is silent too, check the selected **Output** and your Mac’s speaker volume.
+1. Unzip **Klick-macOS.zip**, drag **Klick.app** to **Applications**, and open it from there. If updating, quit the old copy first and replace it. Quit any older copy named Keyfeel as well.
+2. If macOS shows **“Klick” Not Opened**, click **Done**. Open **System Settings → Privacy & Security**, scroll down, and choose **Open Anyway** for Klick, then confirm **Open**. The current release is ad-hoc signed and requires this one-time approval on a fresh download. [Apple’s first-launch instructions](https://support.apple.com/en-us/102445)
+3. Click the keyboard icon in the menu bar. Disconnect any external keyboard for the first test, set **Output** to **System Default** or your Mac’s speakers, raise **Volume**, and press **▶**. The preview works before granting Input Monitoring.
+4. Click **Enable Input Monitoring** in Klick. Turn on **Klick** in **System Settings → Privacy & Security → Input Monitoring**. Choose **Quit & Reopen** if macOS offers it. Open the menu and confirm **Typing sounds on**, then try a few keys in TextEdit. [Apple’s Input Monitoring instructions](https://support.apple.com/guide/mac-help/mchl4cedafb6/mac)
 
-Klick uses key events locally to trigger sounds and does not record what you type or send it over the network.
+## Choose when and where to hear it
 
-Drag the vertical Volume control to adjust loudness. Drag across the tone pad for warmth or brightness, and move up for more clack or down for more thock.
+- In the **…** menu, choose **Only when no external keyboard is connected** (the default) or **With any keyboard**. The main toggle pauses typing sounds whenever you want.
+- **System Default** follows your Mac’s audio output. Pick an explicit device to use your speakers or headphones directly. Klick can fall back to the system output if the chosen device disconnects.
+- Choose your **Switch**, then adjust **Volume** and drag on the tone pad. Press **▶** for a short preview, then **Pause** to end it early.
+
+## If you hear nothing
+
+- **Paused · External keyboard connected** means Klick muted sounds and preview because of the selected keyboard mode. Disconnect the external keyboard or choose **With any keyboard**.
+- **Preview works, typing is silent** means playback is available. Check the typing toggle and Input Monitoring. If you upgraded and permission appears on, remove the stale Klick entry, add the copy from Applications, and reopen it.
+- **Preview is silent** merits checking Klick’s volume, macOS volume, and the selected output. Try your built-in speakers first.
+- Klick uses key events locally to trigger sounds. It does not record what you type or send it over the network.
+
+## Set up with Codex or another agent
+
+Give your agent this repository link and this prompt:
+
+> Set up Klick on this Mac from https://github.com/AdiArya05/klick. Read the README and use the latest Klick-macOS.zip release. Tell me when I need to approve the app or grant Input Monitoring. Help me verify the preview and actual typing, then set the keyboard mode and output I prefer.
+
+An agent with access to your Mac can download the release, extract it, and help install it in Applications. Complete Gatekeeper and Input Monitoring prompts yourself. Keep macOS protections enabled. To finish the test, type a few keys and confirm you hear them.
 
 ## Build from source
 
